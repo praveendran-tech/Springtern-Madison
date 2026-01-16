@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import re
 
+#change for commit
 gradReportFolder = None
 contEdTables = []
 print("script started")
@@ -396,4 +397,5 @@ for c in metric_cols:
         df[c] = ""
 
 df = df[["Unit","Year"] + metric_cols]
+#change for commit
 df.to_csv(None, index=False)
