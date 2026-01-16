@@ -7,7 +7,7 @@ gradReportFolder = None
 contEdTables = []
 print("script started")
 
-# order for csv
+# order for csv output
 unit_order = [
     "University-Wide",
     "College of Agriculture and Natural Resources",
