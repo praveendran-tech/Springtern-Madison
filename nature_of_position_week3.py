@@ -142,9 +142,7 @@ BILLS_LBL  = re.compile(
 
 percentReq = re.compile(r"\bpercent\b|%", re.IGNORECASE)
 
-# -----------------------------
-# word based line reconstruction (UNCHANGED)
-# -----------------------------
+# word based line reconstruction 
 def build_lines_from_words(page, y_tol=2.0):
     words = page.extract_words(use_text_flow=True) or []
     rows = {}
@@ -173,9 +171,7 @@ def clip_at_stop(lines):
         out.append(ln)
     return out
 
-# -----------------------------
-# PRE-2020: keep your pre-window behavior (UNCHANGED)
-# -----------------------------
+## extracts nature of position block from pdf
 def extract_nature_block_with_pre(page, next_page=None, pre_lines=90, post_lines=220):
     lines = build_lines_from_words(page)
     if not lines:
@@ -201,9 +197,7 @@ def extract_nature_block_with_pre(page, next_page=None, pre_lines=90, post_lines
     block = clip_at_stop(block)
     return block
 
-# -----------------------------
-# Sentence helpers (UNCHANGED)
-# -----------------------------
+# estimates area of sentence
 def _sentence_window(text, anchor_match, max_chars=400):
     if not text or not anchor_match:
         return ""
@@ -224,6 +218,7 @@ def _sentence_window(text, anchor_match, max_chars=400):
 
     return text[sent_start:sent_end]
 
+# extracts percent closest to the anchor phrase
 def pct_nearest_anchor_same_sentence(text, anchor_pat, stop_pat=None, max_chars=300,
                                     require_pat=None, block_pat=None, tail_chars=260, backScan=None):
     m = anchor_pat.search(text)
@@ -275,6 +270,8 @@ def pct_nearest_anchor_same_sentence(text, anchor_pat, stop_pat=None, max_chars=
     mf = PCT_ANY.search(forward)
     return mf.group(1) if mf else None
 
+# for extracting bill pay percent
+# takes nearest percent near anchor phrase
 def pct_nearest_anchor_billpay(text, anchor_pat, stop_pat=None, max_chars=300,
                               require_pat=None, block_pat=None, tail_chars=260):
     m = anchor_pat.search(text)
@@ -307,9 +304,7 @@ def pct_nearest_anchor_billpay(text, anchor_pat, stop_pat=None, max_chars=300,
     mf = PCT_ANY.search(forward)
     return mf.group(1) if mf else None
 
-# -----------------------------
-# Percent & N helpers (UNCHANGED)
-# -----------------------------
+# Percent & N helpers
 def _pct_near_line(lines, idx, back=6, forward=2):
     m = PCT_ANY.search(lines[idx])
     if m:
@@ -350,11 +345,8 @@ def count_for_keyword(lines, keyword):
                     return nums[0].group(1)
     return None
 
-# =============================
-# NEW: 2020-2023 split-page fix
-# =============================
-
 # build line objects with x filtering so we can isolate LEFT column
+# helps with 2020-2023 split pages
 def build_line_objs_from_words(page, *, x0_min=None, x0_max=None, y_tol=2.0):
     words = page.extract_words(use_text_flow=True) or []
     rows = {}
@@ -382,11 +374,9 @@ def build_line_objs_from_words(page, *, x0_min=None, x0_max=None, y_tol=2.0):
             out.append({"y": y, "text": line})
     return out
 
+# indicates if a page is split by a line like 2020-2023
+# returns true if there are alot of words on both sides of the page midpoint
 def page_looks_split(page):
-    """
-    Returns True if there are a lot of words on BOTH sides of the page midpoint.
-    Works well for 2020-2023 split layouts vs 2024 full-width.
-    """
     words = page.extract_words(use_text_flow=True) or []
     if not words:
         return False
@@ -402,10 +392,8 @@ def page_looks_split(page):
     # if both sides have substantial content, it's split
     return (left / total) > 0.30 and (right / total) > 0.30
 
+# takes lines starting at nature of position header for non split pages
 def extract_post2020_block_from_header(page, next_page=None, post_lines=240):
-    """
-    Non-split pages (ex: 2024): take lines starting AT 'NATURE OF POSITION'
-    """
     lines = build_lines_from_words(page)
     if not lines:
         return None
@@ -429,14 +417,8 @@ def extract_post2020_block_from_header(page, next_page=None, post_lines=240):
     return block
 
 
+# extracts nature of position info from left side of the page only (for 2020-2023)
 def extract_post2020_blocks_split_safe(page, next_page=None, post_lines=240):
-    """
-    2020-2023: Nature of Position is split into two columns.
-    We want LEFT column only for the CAREER GOALS summary sentence + chart.
-    We still want full-width lines for N.
-
-    Returns (left_lines, all_lines) starting AT the header.
-    """
     all_objs = build_line_objs_from_words(page)
     if not all_objs:
         return None, None
@@ -482,7 +464,6 @@ def extract_post2020_blocks_split_safe(page, next_page=None, post_lines=240):
 CAREER_GOALS = re.compile(r"\bcareer\s+goals?\b", re.IGNORECASE)
 FIELD_STUDY  = re.compile(r"\bfield\s+of\s+study\b|study/major|their\s+study\b|major\b", re.IGNORECASE)
 
-# allow "steppingstone" (no space) as well
 STEPPINGSTONE_TOKEN = r"(?:stepping(?:\s*-\s*|\s+)?stone|steppingstone|stepping(?:[\s\-]*(?:\w+|\d{1,3}\s*%)){0,3}[\s\-]*stone)"
 
 SUMMARY_CAREER_GOALS = re.compile(
@@ -491,9 +472,7 @@ SUMMARY_CAREER_GOALS = re.compile(
     re.IGNORECASE | re.DOTALL
 )
 
-
-
-
+# for post 2019, extracts direct step pct from the chart summary
 def extract_direct_step_from_summary(joined_left_text):
     m = CAREER_GOALS.search(joined_left_text)
     if not m:
@@ -513,6 +492,7 @@ def extract_direct_step_from_summary(joined_left_text):
 
     return m2.group(1), m2.group(2)
 
+# pay bills is calculated by subtraction is direct step and stepping stone are computed
 def pays_bills_by_subtraction(direct_str, step_str):
     if direct_str is None or step_str is None:
         return None
@@ -526,9 +506,7 @@ def pays_bills_by_subtraction(direct_str, step_str):
     except Exception:
         return None
 
-# -----------------------------
-# Main extraction
-# -----------------------------
+# main extraction
 year_unit_data = {}  # (year_str, unit) -> row dict
 
 for file in os.listdir(gradReportFolder):
@@ -560,7 +538,7 @@ for file in os.listdir(gradReportFolder):
             next_page = pdf.pages[page_num] if page_num < len(pdf.pages) else None
             yr_i = int(year)
 
-            # decide unit for this block (unchanged behavior)
+            # figure out school
             school_norm = current_unit
             if not school_norm and last_school_norm and last_table_page == page_num - 1:
                 school_norm = last_school_norm
@@ -570,7 +548,7 @@ for file in os.listdir(gradReportFolder):
                 continue
 
             # -----------------------------
-            # PRE-2020: DO NOT CHANGE
+            # PRE-2020
             # -----------------------------
             if yr_i <= 2019:
                 window_lines = extract_nature_block_with_pre(page, next_page=next_page, pre_lines=90, post_lines=220)
